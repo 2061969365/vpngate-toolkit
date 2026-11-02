@@ -23,6 +23,7 @@ jobs:
       - name: Go build + vet + test
         working-directory: go
         run: |
+          set -o pipefail
           go build ./...
           go vet ./...
           go test ./... -v 2>&1 | tail -40
@@ -30,6 +31,7 @@ jobs:
       - name: Python compile + unittest
         working-directory: python
         run: |
+          set -o pipefail
           python -m compileall -q vpngate
           PYTHONPATH=. python -m unittest discover -s . -p "test_*.py" -v 2>&1 | tail -40
 

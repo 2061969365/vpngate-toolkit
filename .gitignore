@@ -1,7 +1,7 @@
-vpngate
+/vpngate
 *.exe
-out/
-gen/
-sing-box
+/out/
+/gen/
+/sing-box
 __pycache__/
 *.pyc
