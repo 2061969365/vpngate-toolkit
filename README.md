@@ -34,7 +34,8 @@ export PYTHONPATH=python
 python -m vpngate version
 ```
 
-运行时需要一个 `sing-box` 1.14+ 二进制（带 `with_openvpn` 标签）：
+运行时需要一个 `sing-box` 1.14+ 二进制（带 `with_openvpn` 标签）。
+也可以显式指定：`--singbox /path/to/sing-box` 或环境变量 `VPNGATE_SING_BOX`。
 
 ```bash
 VER=1.14.4

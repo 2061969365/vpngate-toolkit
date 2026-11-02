@@ -261,6 +261,7 @@ func runProbe(args []string, stdout, stderr io.Writer) int {
 	out := fs.String("out", "", "result JSON file")
 	usable := fs.String("usable", "", "usable Node JSON file")
 	certsFile := fs.String("certs", "", "certificate JSON file")
+	singboxBin := fs.String("singbox", "", "sing-box binary path (default: lookup in PATH)")
 	if code, ok := parseFlags(fs, args, stderr); !ok {
 		return code
 	}
@@ -292,6 +293,7 @@ func runProbe(args []string, stdout, stderr io.Writer) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	prober := &vpngate.SingBoxBatchProber{
+		Binary:       resolveSingBox(*singboxBin),
 		Certificates: certs,
 		BatchSize:    *batch,
 		BasePort:     *basePort,
@@ -474,6 +476,16 @@ func loadInput(path string, stdin io.Reader) ([]vpngate.Node, []vpngate.Result, 
 	}
 	nodes, err := vpngate.ReadNodes(bytes.NewReader(data))
 	return nodes, nil, false, err
+}
+
+func resolveSingBox(explicit string) string {
+	if explicit != "" {
+		return explicit
+	}
+	if env := os.Getenv("VPNGATE_SING_BOX"); env != "" {
+		return env
+	}
+	return ""
 }
 
 func resolveCerts(explicit, inPath string, timeout time.Duration) (vpngate.CertBundle, error) {

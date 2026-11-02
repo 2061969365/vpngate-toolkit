@@ -82,6 +82,8 @@ jobs:
           fi
 
       - name: Probe
+        env:
+          VPNGATE_SING_BOX: ${{ github.workspace }}/sing-box
         run: |
           if [ "${{ matrix.impl }}" = "go" ]; then
             ./vpngate probe --in out/nodes.json --batch 32 --timeout 12 \
