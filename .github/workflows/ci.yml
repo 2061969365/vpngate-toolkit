@@ -1,0 +1,110 @@
+name: ci
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Go build + vet + test
+        working-directory: go
+        run: |
+          go build ./...
+          go vet ./...
+          go test ./... -v 2>&1 | tail -40
+
+      - name: Python compile + unittest
+        working-directory: python
+        run: |
+          python -m compileall -q vpngate
+          PYTHONPATH=. python -m unittest discover -s . -p "test_*.py" -v 2>&1 | tail -40
+
+      - name: Cross-language byte equality
+        run: python tools/crosscheck.py
+
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        impl: [go, python]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch sing-box
+        run: |
+          set -euo pipefail
+          VER=1.14.4
+          curl -sLo sb.tar.gz \
+            "https://github.com/SagerNet/sing-box/releases/download/v${VER}/sing-box-${VER}-linux-amd64.tar.gz"
+          tar xzf sb.tar.gz
+          mv "sing-box-${VER}-linux-amd64/sing-box" ./sing-box
+          chmod +x ./sing-box
+          ./sing-box version | head -1
+
+      - name: Build Go binary
+        if: matrix.impl == 'go'
+        working-directory: go
+        run: go build -o ../vpngate ./cmd/vpngate
+
+      - name: Harvest
+        run: |
+          mkdir -p out
+          if [ "${{ matrix.impl }}" = "go" ]; then
+            ./vpngate harvest --polls 2 --interval 60 --out out/nodes.json
+          else
+            PYTHONPATH=python python -m vpngate harvest --polls 2 --interval 60 --out out/nodes.json
+          fi
+
+      - name: Probe
+        run: |
+          if [ "${{ matrix.impl }}" = "go" ]; then
+            ./vpngate probe --in out/nodes.json --batch 32 --timeout 12 \
+              --out out/results.json --usable out/usable.txt
+          else
+            PYTHONPATH=python python -m vpngate probe --in out/nodes.json \
+              --batch 32 --timeout 12 --out out/results.json --usable out/usable.txt
+          fi
+
+      - name: Summary
+        run: |
+          python - <<'PY'
+          import json, collections
+          n = json.load(open('out/nodes.json'))
+          r = json.load(open('out/results.json'))
+          ok = [x for x in r if x['ok']]
+          print(f"nodes={len(n)} tested={len(r)} usable={len(ok)} "
+                f"({len(ok)/max(1,len(r))*100:.1f}%)")
+          print("distinct_egress:", len({x['egress'] for x in ok}))
+          print("countries:", collections.Counter(x['country'] for x in ok).most_common(8))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-${{ matrix.impl }}
+          path: out/
+          retention-days: 7

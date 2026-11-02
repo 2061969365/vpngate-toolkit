@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vpngate"
+version = "1.0.0"
+description = "VPNGate DAT decoder, node harvester and sing-box batch prober"
+requires-python = ">=3.10"
+readme = {text = "Zero-dependency VPNGate toolkit.", content-type = "text/plain"}
+
+[project.scripts]
+vpngate = "vpngate.cli:main"
+
+[tool.setuptools]
+packages = ["vpngate"]
